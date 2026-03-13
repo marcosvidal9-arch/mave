@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>UTM Zone | Coordenadas</title>
+    
+    <link rel="icon" type="image/png" href="favicon.png">
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+
+    <style>
+        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+        #map { height: 100vh; width: 100%; background: #f0f0f0; }
+        
+        /* 3. LOGO EN LA ESQUINA SUPERIOR IZQUIERDA */
+        .brand-container {
+            position: absolute;
+            top: 15px;
+            left: 55px; /* Se desplaza para dejar espacio a los botones +/- del mapa */
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            background: white;
+            padding: 8px 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            border: 1px solid #ddd;
+        }
+
+        .brand-container img {
+            height: 45px; /* Ajusta este tamaño según tu logo */
+            width: auto;
+            margin-right: 12px;
+        }
+
+        .brand-text b {
+            display: block;
+            font-size: 14px;
+            color: #2c3e50;
+            letter-spacing: 0.5px;
+        }
+
+        .brand-text span {
+            font-size: 11px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+        }
+
+        /* PANEL DE DATOS DERECHA */
+        .info-panel {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            width: 280px;
+            border: 1px solid #ddd;
+        }
+        
+        .label { font-weight: bold; color: #7f8c8d; display: block; font-size: 10px; text-transform: uppercase; margin-top: 10px;}
+        .value { color: #2c3e50; font-family: 'Courier New', monospace; font-size: 16px; font-weight: bold; }
+        .utm-highlight { color: #d35400; font-size: 19px; }
+        hr { border: 0; border-top: 1px solid #eee; margin: 12px 0; }
+        h2 { margin: 0; font-size: 16px; color: #1a252f; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <div class="brand-container">
+        <img src="logo.png" alt="Logo" onerror="this.style.display='none'">
+        <div class="brand-text">
+            <b>INGENIERÍA GEOMÁTICA</b>
+            <span>Herramientas de Precisión</span>
+        </div>
+    </div>
+
+    <div class="info-panel">
+        <h2>DATOS DE PROYECCIÓN</h2>
+        
+        <span class="label">Zona UTM & EPSG (WGS84)</span>
+        <span id="utm-zone" class="value utm-highlight">-</span>
+        
+        <hr>
+        
+        <span class="label">Este (X) - Metros</span>
+        <span id="utm-e" class="value">-</span>
+        
+        <span class="label">Norte (Y) - Metros</span>
+        <span id="utm-n" class="value">-</span>
+        
+        <hr>
+        
+        <span class="label">Coordenadas Geográficas</span>
+        <span id="coords" class="value" style="font-size: 13px;">-</span>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // Inicializar el mapa
+        const map = L.map('map', {
+            minZoom: 2, 
+            maxZoom: 19,
+            maxBounds: [[-85, -180], [85, 180]],
+            maxBoundsViscosity: 1.0
+        }).setView([0, 0], 3);
+
+        // Capa base profesional
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Esri &copy; Suite Geomática',
+            noWrap: true
+        }).addTo(map);
+
+        // Función de conversión UTM usando Proj4
+        function getUTMData(lat, lon) {
+            let zone = Math.floor((lon + 180) / 6) + 1;
+            // Corrección zonas especiales
+            if (lat >= 56 && lat < 64 && lon >= 3 && lon < 12) zone = 32;
+            
+            let band = lat >= 0 ? 'N' : 'S';
+            let epsg = (lat >= 0 ? 32600 : 32700) + zone;
+
+            // Definición Proj4
+            let projString = `+proj=utm +zone=${zone} ${lat < 0 ? '+south' : ''} +datum=WGS84 +units=m +no_defs`;
+            
+            // Transformación [long, lat] -> [E, N]
+            let utmCoords = proj4(proj4.defs('EPSG:4326'), projString, [lon, lat]);
+
+            return {
+                zone: zone + band,
+                epsg: "EPSG:" + epsg,
+                e: utmCoords[0].toLocaleString('es-ES', {minimumFractionDigits: 3, maximumFractionDigits: 3}),
+                n: utmCoords[1].toLocaleString('es-ES', {minimumFractionDigits: 3, maximumFractionDigits: 3})
+            };
+        }
+
+        // Evento clic
+        map.on('click', function(e) {
+            const data = getUTMData(e.latlng.lat, e.latlng.lng);
+            
+            document.getElementById('coords').innerText = `${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
+            document.getElementById('utm-zone').innerText = `${data.zone} (${data.epsg})`;
+            document.getElementById('utm-e').innerText = data.e;
+            document.getElementById('utm-n').innerText = data.n;
+
+            L.popup()
+                .setLatLng(e.latlng)
+                .setContent(`<b>E:</b> ${data.e}<br><b>N:</b> ${data.n}<br><b>Z:</b> ${data.zone}`)
+                .openOn(map);
+        });
+
+        // Asegurar renderizado inicial
+        setTimeout(() => { map.invalidateSize(); }, 500);
+    </script>
+</body>
+</html>
