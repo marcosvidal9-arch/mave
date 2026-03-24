@@ -75,8 +75,8 @@
     <div class="brand-container">
         <img src="logo.png" alt="Logo" onerror="this.style.display='none'">
         <div class="brand-text">
-            <b>INGENIERÍA GEOMÁTICA</b>
-            <span>Herramientas de Precisión</span>
+            <b>Zonas UTM</b>
+            <span>Heligrafics</span>
         </div>
     </div>
 
@@ -116,7 +116,7 @@
         // Capa base profesional
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Esri &copy; Suite Geomática',
-            noWrap: true
+            noWrap: false
         }).addTo(map);
 
         // Función de conversión UTM usando Proj4
